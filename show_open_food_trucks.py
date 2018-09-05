@@ -15,7 +15,7 @@ def get_data():
     if response.status_code == 200:
         data = response.json() # Converts json to python list of dictionaries
         return data
-    else
+    else:
         print "{} {}".format("Request failed; response code:", response.status_code)
 
 
