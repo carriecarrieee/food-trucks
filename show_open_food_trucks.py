@@ -1,8 +1,6 @@
 import requests
 
-from pprint import pprint
-
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 
 def get_data():
@@ -12,52 +10,59 @@ def get_data():
     url = "http://data.sfgov.org/resource/bbb8-hzi6.json"
 
     response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json() # Converts json to python list of dictionaries
-        return data
-    else:
-        print "{} {}".format("Request failed; response code:", response.status_code)
+    
+    assert(response.status_code == 200), "Response to data request failed."
+    data = response.json() # Converts json to python list of dictionaries
+    
+    return data
 
 
-def get_curr_day():
-    """Returns the current day of the week."""
+def get_datetime():
+    """Returns a datetime object of the current date and time."""
 
-    today = datetime.now().strftime("%w") # Weekday as a number
-    return today
-
-
-def get_curr_time():
-    """Returns the current time as int."""
-
-    curr = datetime.now().strftime("%X") # Local time in 24hr format
-    time = int(curr[:2] + curr[3:5]) # Converts time into an int
-    return time
+    now = datetime.now() # Local time as datetime object
+    return now
 
 
 def find_open_trucks(dataset):
-    """Finds the open trucks at this moment."""
+    """Returns list of open trucks at current day and time."""
 
     trucks = [] # Empty list for food trucks that are open
-    today = get_curr_day()
-    curr_time = get_curr_time()
+
+    now = get_datetime()
+
+    # Add'l feature: make sure trucks are still open 4 hours from now
+    later = now + timedelta(hours=4)
+
+    # Convert datetime object to a weekday as a number 0-6, 0 is Sunday
+    today = now.strftime("%w")
 
     for entry in dataset: # Loop through list of dictionaries
         if today == entry["dayorder"]:
 
-            # Convert open and close times to int
-            start = entry["start24"]
-            opens = int(start[:2] + start[3:5])
-            end = entry["end24"]
-            closes = int(end[:2] + end[3:5])
+            # Convert open and close times to int to datetime.time object
+            start_hr = int(entry["start24"][:2])
+            start_min = int(entry["start24"][3:5])
+            opens = time(start_hr, start_min)
+
+            end_hr = int(entry["end24"][:2])
+            end_min = int(entry["end24"][3:5])
+
+            # Datetime hours are from 0-23
+            if end_hr == 24:
+                end_hr = 23
+                end_min = 59
+            closes = time(end_hr, end_min)
 
             # Checks if current time falls between opening hours
-            if opens <= curr_time <= closes:
+            if opens <= now.time() and later.time() <= closes:
                 trucks.append([entry["applicant"], entry["location"]])
 
     return trucks
 
+
 def print_trucks():
-    """Sorts and formats the names and addresses of food trucks for display"""
+    """Sorts and formats the names and addresses of food trucks for display."""
 
     lst = find_open_trucks(get_data())
     count = 0
@@ -65,7 +70,7 @@ def print_trucks():
     # In case find_open_trucks returns an empty list, this indicates
     # that nothing is open at the current time.
     if not lst:
-        return "Sorry! Nothing open right now."
+        print "\nSorry! Nothing open right now.\n"
     else:
         # Sort the list of trucks in alphabetical order
         trucks = sorted(lst)
